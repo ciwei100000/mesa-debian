@@ -1,3 +1,9 @@
+mesa (20.1.7-1-c1) unstable; urgency=medium
+
+  * Added dependency llvm.
+
+ -- ciwei100000 <ciwei100000@gmail.com>  Fri, 11 Sep 2020 22:13:14 -0700
+
 mesa (20.1.7-1) unstable; urgency=medium
 
   * New upstream release.

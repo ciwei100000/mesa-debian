@@ -2,6 +2,23 @@
 ======================================================
 
 
+Build the Debian package
+-----------------
+go to the root directory of this repository and execute the following commands
+
+.. code-block:: sh
+
+     # install build dependencies
+   $ mk-buiild-deps -s sudo -i
+     # set up building flags
+     # Do not use -O3 because the lto-wrapper (gcc 8.4.0) will crash
+   $ export DEB_CFLAGS_APPEND="-O2 -flto=jobserver -fdevirtualize-at-ltrans -fipa-pta -flto-odr-type-merging -ffat-lto-objects -flto-compression-level=9"; \
+     export DEB_CXXFLAGS_APPEND="-O2 -flto=jobserver -fdevirtualize-at-ltrans -fipa-pta -flto-odr-type-merging -ffat-lto-objects -flto-compression-level=9"; \
+     export DEB_LDFLAGS_APPEND="-O2 -flto=jobserver -fdevirtualize-at-ltrans -fipa-pta -flto-odr-type-merging -ffat-lto-objects -flto-compression-level=9"
+     # start building
+   $ dpkg-buildpackage -b --no-sign
+
+
 Source
 ------
 

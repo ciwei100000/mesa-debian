@@ -1,3 +1,55 @@
+mesa (20.2.2-1) unstable; urgency=medium
+
+  * New upstream release.
+  * control: Enable libdrm-dev for Hurd. (Closes: #973673)
+  * rules: Rework EGL_PLATFORMS to match current upstream defaults.
+  * rules: Fix warnings from deprecated options. (Closes: #973675)
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Tue, 10 Nov 2020 22:38:16 +0200
+
+mesa (20.2.1-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Thu, 15 Oct 2020 12:38:36 +0300
+
+mesa (20.2.0-1) experimental; urgency=medium
+
+  * New upstream release.
+  * control: Add libclang-cpp11-dev to build-depends. (Closes: #954849)
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Tue, 29 Sep 2020 11:07:13 +0300
+
+mesa (20.2.0~rc4-2) experimental; urgency=medium
+
+  * Migrate to llvm/clang-11.
+  * path_max.diff: Updated. (Closes: #969040)
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Thu, 17 Sep 2020 12:07:08 +0300
+
+mesa (20.2.0~rc4-1) experimental; urgency=medium
+
+  * New upstream prerelease.
+  * rules: Move radv rule up to fix build on non-intel archs.
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Fri, 04 Sep 2020 19:32:58 +0300
+
+mesa (20.2.0~rc2-1) experimental; urgency=medium
+
+  * New upstream release candidate.
+  * rules: Get rid of trailing commas in *_DRIVERS options.
+  * control: Bump libglvnd build-dep.
+  * Update mesa-common-dev.docs.
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Fri, 14 Aug 2020 18:30:42 +0300
+
+mesa (20.1.9-1) unstable; urgency=medium
+
+  * New upstream release.
+  * control: Add libclang-cpp11-dev to build-depends. (Closes: #954849)
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Thu, 01 Oct 2020 10:12:00 +0300
+
 mesa (20.1.8-1-c1) unstable; urgency=medium
 
   * Merge tag 'mesa-20.1.8-1' into ciwei100000.

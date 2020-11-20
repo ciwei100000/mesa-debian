@@ -99,11 +99,20 @@ static void
 isl_device_setup_mocs(struct isl_device *dev)
 {
    if (dev->info->gen >= 12) {
-      /* TODO: Set PTE to MOCS 61 when the kernel is ready */
-      /* TC=1/LLC Only, LeCC=1/Uncacheable, LRUM=0, L3CC=1/Uncacheable */
-      dev->mocs.external = 3 << 1;
-      /* TC=LLC/eLLC, LeCC=WB, LRUM=3, L3CC=WB */
-      dev->mocs.internal = 2 << 1;
+      if (dev->info->is_dg1) {
+         /* L3CC=WB */
+         dev->mocs.internal = 5 << 1;
+         /* Displayables on DG1 are free to cache in L3 since L3 is transient
+          * and flushed at bottom of each submission.
+          */
+         dev->mocs.external = 5 << 1;
+      } else {
+         /* TODO: Set PTE to MOCS 61 when the kernel is ready */
+         /* TC=1/LLC Only, LeCC=1/Uncacheable, LRUM=0, L3CC=1/Uncacheable */
+         dev->mocs.external = 3 << 1;
+         /* TC=LLC/eLLC, LeCC=WB, LRUM=3, L3CC=WB */
+         dev->mocs.internal = 2 << 1;
+      }
    } else if (dev->info->gen >= 9) {
       /* TC=LLC/eLLC, LeCC=PTE, LRUM=3, L3CC=WB */
       dev->mocs.external = 1 << 1;
@@ -2960,7 +2969,7 @@ isl_format_get_aux_map_encoding(enum isl_format format)
    case ISL_FORMAT_R32_SINT: return 0x12;
    case ISL_FORMAT_R32_UINT: return 0x13;
    case ISL_FORMAT_R32_FLOAT: return 0x11;
-   case ISL_FORMAT_R24_UNORM_X8_TYPELESS: return 0x11;
+   case ISL_FORMAT_R24_UNORM_X8_TYPELESS: return 0x13;
    case ISL_FORMAT_B5G6R5_UNORM: return 0xA;
    case ISL_FORMAT_B5G6R5_UNORM_SRGB: return 0xA;
    case ISL_FORMAT_B5G5R5A1_UNORM: return 0xA;

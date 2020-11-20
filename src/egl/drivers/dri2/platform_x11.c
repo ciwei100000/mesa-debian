@@ -45,7 +45,6 @@
 #include "util/bitscan.h"
 
 #include "egl_dri2.h"
-#include "egl_dri2_fallbacks.h"
 #include "loader.h"
 
 #ifdef HAVE_DRI3
@@ -53,7 +52,7 @@
 #endif
 
 static EGLBoolean
-dri2_x11_swap_interval(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
+dri2_x11_swap_interval(const _EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
                        EGLint interval);
 
 uint32_t
@@ -245,10 +244,10 @@ dri2_x11_get_red_mask_for_depth(struct dri2_egl_display *dri2_dpy, int depth)
 }
 
 /**
- * Called via eglCreateWindowSurface(), drv->API.CreateWindowSurface().
+ * Called via eglCreateWindowSurface(), drv->CreateWindowSurface().
  */
 static _EGLSurface *
-dri2_x11_create_surface(_EGLDriver *drv, _EGLDisplay *disp, EGLint type,
+dri2_x11_create_surface(const _EGLDriver *drv, _EGLDisplay *disp, EGLint type,
                         _EGLConfig *conf, void *native_surface,
                         const EGLint *attrib_list)
 {
@@ -362,10 +361,10 @@ dri2_x11_create_surface(_EGLDriver *drv, _EGLDisplay *disp, EGLint type,
 }
 
 /**
- * Called via eglCreateWindowSurface(), drv->API.CreateWindowSurface().
+ * Called via eglCreateWindowSurface(), drv->CreateWindowSurface().
  */
 static _EGLSurface *
-dri2_x11_create_window_surface(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_x11_create_window_surface(const _EGLDriver *drv, _EGLDisplay *disp,
                                _EGLConfig *conf, void *native_window,
                                const EGLint *attrib_list)
 {
@@ -388,7 +387,7 @@ dri2_x11_create_window_surface(_EGLDriver *drv, _EGLDisplay *disp,
 }
 
 static _EGLSurface *
-dri2_x11_create_pixmap_surface(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_x11_create_pixmap_surface(const _EGLDriver *drv, _EGLDisplay *disp,
                                _EGLConfig *conf, void *native_pixmap,
                                const EGLint *attrib_list)
 {
@@ -397,7 +396,7 @@ dri2_x11_create_pixmap_surface(_EGLDriver *drv, _EGLDisplay *disp,
 }
 
 static _EGLSurface *
-dri2_x11_create_pbuffer_surface(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_x11_create_pbuffer_surface(const _EGLDriver *drv, _EGLDisplay *disp,
                                 _EGLConfig *conf, const EGLint *attrib_list)
 {
    return dri2_x11_create_surface(drv, disp, EGL_PBUFFER_BIT, conf,
@@ -405,7 +404,7 @@ dri2_x11_create_pbuffer_surface(_EGLDriver *drv, _EGLDisplay *disp,
 }
 
 static EGLBoolean
-dri2_x11_destroy_surface(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf)
+dri2_x11_destroy_surface(const _EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
    struct dri2_egl_surface *dri2_surf = dri2_egl_surface(surf);
@@ -439,7 +438,7 @@ dri2_x11_destroy_surface(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf)
  * have.
  */
 static EGLBoolean
-dri2_query_surface(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_query_surface(const _EGLDriver *drv, _EGLDisplay *disp,
                    _EGLSurface *surf, EGLint attribute,
                    EGLint *value)
 {
@@ -857,7 +856,7 @@ dri2_x11_add_configs_for_visuals(struct dri2_egl_display *dri2_dpy,
 }
 
 static EGLBoolean
-dri2_copy_region(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_copy_region(const _EGLDriver *drv, _EGLDisplay *disp,
 		 _EGLSurface *draw, xcb_xfixes_region_t region)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
@@ -887,7 +886,7 @@ dri2_copy_region(_EGLDriver *drv, _EGLDisplay *disp,
 }
 
 static int64_t
-dri2_x11_swap_buffers_msc(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw,
+dri2_x11_swap_buffers_msc(const _EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw,
                           int64_t msc, int64_t divisor, int64_t remainder)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
@@ -937,7 +936,7 @@ dri2_x11_swap_buffers_msc(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw,
 }
 
 static EGLBoolean
-dri2_x11_swap_buffers(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw)
+dri2_x11_swap_buffers(const _EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
    struct dri2_egl_surface *dri2_surf = dri2_egl_surface(draw);
@@ -955,7 +954,7 @@ dri2_x11_swap_buffers(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw)
 }
 
 static EGLBoolean
-dri2_x11_swap_buffers_region(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_x11_swap_buffers_region(const _EGLDriver *drv, _EGLDisplay *disp,
                              _EGLSurface *draw,
                              EGLint numRects, const EGLint *rects)
 {
@@ -984,7 +983,7 @@ dri2_x11_swap_buffers_region(_EGLDriver *drv, _EGLDisplay *disp,
 }
 
 static EGLBoolean
-dri2_x11_post_sub_buffer(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw,
+dri2_x11_post_sub_buffer(const _EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw,
 		     EGLint x, EGLint y, EGLint width, EGLint height)
 {
    const EGLint rect[4] = { x, y, width, height };
@@ -996,7 +995,7 @@ dri2_x11_post_sub_buffer(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *draw,
 }
 
 static EGLBoolean
-dri2_x11_swap_interval(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
+dri2_x11_swap_interval(const _EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
                        EGLint interval)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
@@ -1009,7 +1008,7 @@ dri2_x11_swap_interval(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
 }
 
 static EGLBoolean
-dri2_x11_copy_buffers(_EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
+dri2_x11_copy_buffers(const _EGLDriver *drv, _EGLDisplay *disp, _EGLSurface *surf,
                       void *native_pixmap_target)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
@@ -1142,7 +1141,7 @@ dri2_create_image_khr_pixmap(_EGLDisplay *disp, _EGLContext *ctx,
 }
 
 static _EGLImage *
-dri2_x11_create_image_khr(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_x11_create_image_khr(const _EGLDriver *drv, _EGLDisplay *disp,
 			  _EGLContext *ctx, EGLenum target,
 			  EGLClientBuffer buffer, const EGLint *attr_list)
 {
@@ -1188,14 +1187,8 @@ static const struct dri2_egl_display_vtbl dri2_x11_swrast_display_vtbl = {
    .destroy_surface = dri2_x11_destroy_surface,
    .create_image = dri2_create_image_khr,
    .swap_buffers = dri2_x11_swap_buffers,
-   .swap_buffers_region = dri2_fallback_swap_buffers_region,
-   .post_sub_buffer = dri2_fallback_post_sub_buffer,
    /* XXX: should really implement this since X11 has pixmaps */
-   .copy_buffers = dri2_fallback_copy_buffers,
-   .query_buffer_age = dri2_fallback_query_buffer_age,
    .query_surface = dri2_query_surface,
-   .create_wayland_buffer_from_image = dri2_fallback_create_wayland_buffer_from_image,
-   .get_sync_values = dri2_fallback_get_sync_values,
    .get_dri_drawable = dri2_surface_get_dri_drawable,
 };
 
@@ -1208,13 +1201,10 @@ static const struct dri2_egl_display_vtbl dri2_x11_display_vtbl = {
    .create_image = dri2_x11_create_image_khr,
    .swap_interval = dri2_x11_swap_interval,
    .swap_buffers = dri2_x11_swap_buffers,
-   .swap_buffers_with_damage = dri2_fallback_swap_buffers_with_damage,
    .swap_buffers_region = dri2_x11_swap_buffers_region,
    .post_sub_buffer = dri2_x11_post_sub_buffer,
    .copy_buffers = dri2_x11_copy_buffers,
-   .query_buffer_age = dri2_fallback_query_buffer_age,
    .query_surface = dri2_query_surface,
-   .create_wayland_buffer_from_image = dri2_fallback_create_wayland_buffer_from_image,
    .get_sync_values = dri2_x11_get_sync_values,
    .get_dri_drawable = dri2_surface_get_dri_drawable,
 };
@@ -1247,7 +1237,7 @@ dri2_find_screen_for_display(const _EGLDisplay *disp, int fallback_screen)
 }
 
 static EGLBoolean
-dri2_get_xcb_connection(_EGLDriver *drv, _EGLDisplay *disp,
+dri2_get_xcb_connection(const _EGLDriver *drv, _EGLDisplay *disp,
                         struct dri2_egl_display *dri2_dpy)
 {
    xcb_screen_iterator_t s;
@@ -1286,7 +1276,7 @@ disconnect:
 }
 
 static EGLBoolean
-dri2_initialize_x11_swrast(_EGLDriver *drv, _EGLDisplay *disp)
+dri2_initialize_x11_swrast(const _EGLDriver *drv, _EGLDisplay *disp)
 {
    _EGLDevice *dev;
    struct dri2_egl_display *dri2_dpy;
@@ -1373,7 +1363,7 @@ static const __DRIextension *dri3_image_loader_extensions[] = {
 };
 
 static EGLBoolean
-dri2_initialize_x11_dri3(_EGLDriver *drv, _EGLDisplay *disp)
+dri2_initialize_x11_dri3(const _EGLDriver *drv, _EGLDisplay *disp)
 {
    _EGLDevice *dev;
    struct dri2_egl_display *dri2_dpy;
@@ -1420,6 +1410,7 @@ dri2_initialize_x11_dri3(_EGLDriver *drv, _EGLDisplay *disp)
    disp->Extensions.NOK_texture_from_pixmap = EGL_TRUE;
    disp->Extensions.CHROMIUM_sync_control = EGL_TRUE;
    disp->Extensions.EXT_buffer_age = EGL_TRUE;
+   disp->Extensions.EXT_swap_buffers_with_damage = EGL_TRUE;
 
    dri2_set_WL_bind_wayland_display(drv, disp);
 
@@ -1480,7 +1471,7 @@ static const __DRIextension *dri2_loader_extensions[] = {
 };
 
 static EGLBoolean
-dri2_initialize_x11_dri2(_EGLDriver *drv, _EGLDisplay *disp)
+dri2_initialize_x11_dri2(const _EGLDriver *drv, _EGLDisplay *disp)
 {
    _EGLDevice *dev;
    struct dri2_egl_display *dri2_dpy;
@@ -1551,7 +1542,7 @@ dri2_initialize_x11_dri2(_EGLDriver *drv, _EGLDisplay *disp)
 }
 
 EGLBoolean
-dri2_initialize_x11(_EGLDriver *drv, _EGLDisplay *disp)
+dri2_initialize_x11(const _EGLDriver *drv, _EGLDisplay *disp)
 {
    EGLBoolean initialized = EGL_FALSE;
 

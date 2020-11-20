@@ -80,5 +80,8 @@ mir_squeeze_index(compiler_context *ctx)
                         ins->src[i] = find_or_allocate_temp(ctx, map, ins->src[i]);
         }
 
+        ctx->blend_input = find_or_allocate_temp(ctx, map, ctx->blend_input);
+        ctx->blend_src1 = find_or_allocate_temp(ctx, map, ctx->blend_src1);
+
         _mesa_hash_table_u64_destroy(map, NULL);
 }

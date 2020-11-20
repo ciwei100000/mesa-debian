@@ -56,7 +56,7 @@ brw_blorp_blit_vars_init(nir_builder *b, struct brw_blorp_blit_vars *v,
    LOAD_INPUT(discard_rect, glsl_vec4_type())
    LOAD_INPUT(rect_grid, glsl_vec4_type())
    LOAD_INPUT(coord_transform, glsl_vec4_type())
-   LOAD_INPUT(src_z, glsl_uint_type())
+   LOAD_INPUT(src_z, glsl_float_type())
    LOAD_INPUT(src_offset, glsl_vector_type(GLSL_TYPE_UINT, 2))
    LOAD_INPUT(dst_offset, glsl_vector_type(GLSL_TYPE_UINT, 2))
    LOAD_INPUT(src_inv_size, glsl_vector_type(GLSL_TYPE_FLOAT, 2))
@@ -154,8 +154,13 @@ blorp_create_nir_tex_instr(nir_builder *b, struct brw_blorp_blit_vars *v,
     * more explicit in the future.
     */
    assert(pos->num_components >= 2);
-   pos = nir_vec3(b, nir_channel(b, pos, 0), nir_channel(b, pos, 1),
-                     nir_load_var(b, v->v_src_z));
+   if (op == nir_texop_txf || op == nir_texop_txf_ms || op == nir_texop_txf_ms_mcs) {
+      pos = nir_vec3(b, nir_channel(b, pos, 0), nir_channel(b, pos, 1),
+                        nir_f2i32(b, nir_load_var(b, v->v_src_z)));
+   } else {
+      pos = nir_vec3(b, nir_channel(b, pos, 0), nir_channel(b, pos, 1),
+                        nir_load_var(b, v->v_src_z));
+   }
 
    tex->src[0].src_type = nir_tex_src_coord;
    tex->src[0].src = nir_src_for_ssa(pos);
@@ -2319,7 +2324,7 @@ do_blorp_blit(struct blorp_batch *batch,
 void
 blorp_blit(struct blorp_batch *batch,
            const struct blorp_surf *src_surf,
-           unsigned src_level, unsigned src_layer,
+           unsigned src_level, float src_layer,
            enum isl_format src_format, struct isl_swizzle src_swizzle,
            const struct blorp_surf *dst_surf,
            unsigned dst_level, unsigned dst_layer,
@@ -2664,6 +2669,7 @@ blorp_copy(struct blorp_batch *batch,
           params.src.aux_usage == ISL_AUX_USAGE_MCS ||
           params.src.aux_usage == ISL_AUX_USAGE_MCS_CCS ||
           params.src.aux_usage == ISL_AUX_USAGE_CCS_E ||
+          params.src.aux_usage == ISL_AUX_USAGE_GEN12_CCS_E ||
           params.src.aux_usage == ISL_AUX_USAGE_STC_CCS);
 
    if (isl_aux_usage_has_hiz(params.src.aux_usage)) {
@@ -2679,9 +2685,11 @@ blorp_copy(struct blorp_batch *batch,
        */
       params.src.view.format = params.dst.surf.format;
       params.dst.view.format = params.dst.surf.format;
-   } else if (params.dst.aux_usage == ISL_AUX_USAGE_CCS_E) {
+   } else if (params.dst.aux_usage == ISL_AUX_USAGE_CCS_E ||
+              params.dst.aux_usage == ISL_AUX_USAGE_GEN12_CCS_E) {
       params.dst.view.format = get_ccs_compatible_copy_format(dst_fmtl);
-      if (params.src.aux_usage == ISL_AUX_USAGE_CCS_E) {
+      if (params.src.aux_usage == ISL_AUX_USAGE_CCS_E ||
+          params.src.aux_usage == ISL_AUX_USAGE_GEN12_CCS_E) {
          params.src.view.format = get_ccs_compatible_copy_format(src_fmtl);
       } else if (src_fmtl->bpb == dst_fmtl->bpb) {
          params.src.view.format = params.dst.view.format;
@@ -2689,7 +2697,8 @@ blorp_copy(struct blorp_batch *batch,
          params.src.view.format =
             get_copy_format_for_bpb(isl_dev, src_fmtl->bpb);
       }
-   } else if (params.src.aux_usage == ISL_AUX_USAGE_CCS_E) {
+   } else if (params.src.aux_usage == ISL_AUX_USAGE_CCS_E ||
+              params.src.aux_usage == ISL_AUX_USAGE_GEN12_CCS_E) {
       params.src.view.format = get_ccs_compatible_copy_format(src_fmtl);
       if (src_fmtl->bpb == dst_fmtl->bpb) {
          params.dst.view.format = params.src.view.format;

@@ -130,6 +130,9 @@ etna_context_destroy(struct pipe_context *pctx)
    }
    mtx_unlock(&ctx->lock);
 
+   if (ctx->dummy_desc_bo)
+      etna_bo_del(ctx->dummy_desc_bo);
+
    if (ctx->dummy_rt)
       etna_bo_del(ctx->dummy_rt);
 
@@ -585,7 +588,7 @@ etna_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    /* context ctxate setup */
    ctx->screen = screen;
-   /* need some sane default in case state tracker doesn't set some state: */
+   /* need some sane default in case gallium frontends don't set some state: */
    ctx->sample_mask = 0xffff;
 
    /*  Set sensible defaults for state */

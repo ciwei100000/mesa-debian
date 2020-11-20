@@ -68,7 +68,7 @@ static bool
 is_swizzleless_move(nir_alu_instr *instr)
 {
    if (is_move(instr)) {
-      for (unsigned i = 0; i < 4; i++) {
+      for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++) {
          if (!((instr->dest.write_mask >> i) & 1))
             break;
          if (instr->src[0].swizzle[i] != i)
@@ -273,9 +273,7 @@ nir_copy_prop_impl(nir_function_impl *impl)
       nir_metadata_preserve(impl, nir_metadata_block_index |
                                   nir_metadata_dominance);
    } else {
-#ifndef NDEBUG
-      impl->valid_metadata &= ~nir_metadata_not_properly_reset;
-#endif
+      nir_metadata_preserve(impl, nir_metadata_all);
    }
 
    return progress;

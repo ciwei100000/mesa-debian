@@ -224,25 +224,27 @@ public:
 bool
 fs_generator::patch_discard_jumps_to_fb_writes()
 {
-   if (devinfo->gen < 6 || this->discard_halt_patches.is_empty())
+   if (this->discard_halt_patches.is_empty())
       return false;
 
    int scale = brw_jump_scale(p->devinfo);
 
-   /* There is a somewhat strange undocumented requirement of using
-    * HALT, according to the simulator.  If some channel has HALTed to
-    * a particular UIP, then by the end of the program, every channel
-    * must have HALTed to that UIP.  Furthermore, the tracking is a
-    * stack, so you can't do the final halt of a UIP after starting
-    * halting to a new UIP.
-    *
-    * Symptoms of not emitting this instruction on actual hardware
-    * included GPU hangs and sparkly rendering on the piglit discard
-    * tests.
-    */
-   brw_inst *last_halt = gen6_HALT(p);
-   brw_inst_set_uip(p->devinfo, last_halt, 1 * scale);
-   brw_inst_set_jip(p->devinfo, last_halt, 1 * scale);
+   if (devinfo->gen >= 6) {
+      /* There is a somewhat strange undocumented requirement of using
+       * HALT, according to the simulator.  If some channel has HALTed to
+       * a particular UIP, then by the end of the program, every channel
+       * must have HALTed to that UIP.  Furthermore, the tracking is a
+       * stack, so you can't do the final halt of a UIP after starting
+       * halting to a new UIP.
+       *
+       * Symptoms of not emitting this instruction on actual hardware
+       * included GPU hangs and sparkly rendering on the piglit discard
+       * tests.
+       */
+      brw_inst *last_halt = brw_HALT(p);
+      brw_inst_set_uip(p->devinfo, last_halt, 1 * scale);
+      brw_inst_set_jip(p->devinfo, last_halt, 1 * scale);
+   }
 
    int ip = p->nr_insn;
 
@@ -250,11 +252,67 @@ fs_generator::patch_discard_jumps_to_fb_writes()
       brw_inst *patch = &p->store[patch_ip->ip];
 
       assert(brw_inst_opcode(p->devinfo, patch) == BRW_OPCODE_HALT);
-      /* HALT takes a half-instruction distance from the pre-incremented IP. */
-      brw_inst_set_uip(p->devinfo, patch, (ip - patch_ip->ip) * scale);
+      if (devinfo->gen >= 6) {
+         /* HALT takes a half-instruction distance from the pre-incremented IP. */
+         brw_inst_set_uip(p->devinfo, patch, (ip - patch_ip->ip) * scale);
+      } else {
+         brw_set_src1(p, patch, brw_imm_d((ip - patch_ip->ip) * scale));
+      }
    }
 
    this->discard_halt_patches.make_empty();
+
+   if (devinfo->gen < 6) {
+      /* From the g965 PRM:
+       *
+       *    "As DMask is not automatically reloaded into AMask upon completion
+       *    of this instruction, software has to manually restore AMask upon
+       *    completion."
+       *
+       * DMask lives in the bottom 16 bits of sr0.1.
+       */
+      brw_inst *reset = brw_MOV(p, brw_mask_reg(BRW_AMASK),
+                                   retype(brw_sr0_reg(1), BRW_REGISTER_TYPE_UW));
+      brw_inst_set_exec_size(devinfo, reset, BRW_EXECUTE_1);
+      brw_inst_set_mask_control(devinfo, reset, BRW_MASK_DISABLE);
+      brw_inst_set_qtr_control(devinfo, reset, BRW_COMPRESSION_NONE);
+      brw_inst_set_thread_control(devinfo, reset, BRW_THREAD_SWITCH);
+   }
+
+   if (devinfo->gen == 4 && !devinfo->is_g4x) {
+      /* From the g965 PRM:
+       *
+       *    "[DevBW, DevCL] Erratum: The subfields in mask stack register are
+       *    reset to zero during graphics reset, however, they are not
+       *    initialized at thread dispatch. These subfields will retain the
+       *    values from the previous thread. Software should make sure the
+       *    mask stack is empty (reset to zero) before terminating the thread.
+       *    In case that this is not practical, software may have to reset the
+       *    mask stack at the beginning of each kernel, which will impact the
+       *    performance."
+       *
+       * Luckily we can rely on:
+       *
+       *    "[DevBW, DevCL] This register access restriction is not
+       *    applicable, hardware does ensure execution pipeline coherency,
+       *    when a mask stack register is used as an explicit source and/or
+       *    destination."
+       */
+      brw_push_insn_state(p);
+      brw_set_default_mask_control(p, BRW_MASK_DISABLE);
+      brw_set_default_compression_control(p, BRW_COMPRESSION_NONE);
+
+      brw_set_default_exec_size(p, BRW_EXECUTE_2);
+      brw_MOV(p, vec2(brw_mask_stack_depth_reg(0)), brw_imm_uw(0));
+
+      brw_set_default_exec_size(p, BRW_EXECUTE_16);
+      /* Reset the if stack. */
+      brw_MOV(p, retype(brw_mask_stack_reg(0), BRW_REGISTER_TYPE_UW),
+              brw_imm_uw(0));
+
+      brw_pop_insn_state(p);
+   }
+
    return true;
 }
 
@@ -592,15 +650,54 @@ fs_generator::generate_shuffle(fs_inst *inst,
             group_idx = retype(spread(group_idx, 2), BRW_REGISTER_TYPE_W);
          }
 
+         uint32_t src_start_offset = src.nr * REG_SIZE + src.subnr;
+
+         /* From the Haswell PRM:
+          *
+          *    "When a sequence of NoDDChk and NoDDClr are used, the last
+          *    instruction that completes the scoreboard clear must have a
+          *    non-zero execution mask. This means, if any kind of predication
+          *    can change the execution mask or channel enable of the last
+          *    instruction, the optimization must be avoided.  This is to
+          *    avoid instructions being shot down the pipeline when no writes
+          *    are required."
+          *
+          * Whenever predication is enabled or the instructions being emitted
+          * aren't the full width, it's possible that it will be run with zero
+          * channels enabled so we can't use dependency control without
+          * running the risk of a hang if an instruction gets shot down.
+          */
+         const bool use_dep_ctrl = !inst->predicate &&
+                                   lower_width == dispatch_width;
+         brw_inst *insn;
+
+         /* Due to a hardware bug some platforms (particularly Gen11+) seem
+          * to require the address components of all channels to be valid
+          * whether or not they're active, which causes issues if we use VxH
+          * addressing under non-uniform control-flow.  We can easily work
+          * around that by initializing the whole address register with a
+          * pipelined NoMask MOV instruction.
+          */
+         insn = brw_MOV(p, addr, brw_imm_uw(src_start_offset));
+         brw_inst_set_mask_control(devinfo, insn, BRW_MASK_DISABLE);
+         brw_inst_set_pred_control(devinfo, insn, BRW_PREDICATE_NONE);
+         if (devinfo->gen >= 12)
+            brw_set_default_swsb(p, tgl_swsb_null());
+         else
+            brw_inst_set_no_dd_clear(devinfo, insn, use_dep_ctrl);
+
          /* Take into account the component size and horizontal stride. */
          assert(src.vstride == src.hstride + src.width);
-         brw_SHL(p, addr, group_idx,
-                 brw_imm_uw(util_logbase2(type_sz(src.type)) +
-                            src.hstride - 1));
+         insn = brw_SHL(p, addr, group_idx,
+                        brw_imm_uw(util_logbase2(type_sz(src.type)) +
+                                   src.hstride - 1));
+         if (devinfo->gen >= 12)
+            brw_set_default_swsb(p, tgl_swsb_regdist(1));
+         else
+            brw_inst_set_no_dd_check(devinfo, insn, use_dep_ctrl);
 
          /* Add on the register start offset */
-         brw_set_default_swsb(p, tgl_swsb_regdist(1));
-         brw_ADD(p, addr, addr, brw_imm_uw(src.nr * REG_SIZE + src.subnr));
+         brw_ADD(p, addr, addr, brw_imm_uw(src_start_offset));
 
          if (type_sz(src.type) > 4 &&
              ((devinfo->gen == 7 && !devinfo->is_haswell) ||
@@ -1370,14 +1467,12 @@ fs_generator::generate_ddy(const fs_inst *inst,
 void
 fs_generator::generate_discard_jump(fs_inst *)
 {
-   assert(devinfo->gen >= 6);
-
    /* This HALT will be patched up at FB write time to point UIP at the end of
     * the program, and at brw_uip_jip() JIP will be set to the end of the
     * current block (or the program).
     */
    this->discard_halt_patches.push_tail(new(mem_ctx) ip_record(p->nr_insn));
-   gen6_HALT(p);
+   brw_HALT(p);
 }
 
 void

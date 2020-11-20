@@ -48,15 +48,6 @@ amd_vk_format_table_c = custom_target(
   capture : true,
 )
 
-radv_gfx10_format_table_h = custom_target(
-  'radv_gfx10_format_table.h',
-  input : ['gfx10_format_table.py', 'vk_format_layout.csv', '../registers/gfx10-rsrc.json'],
-  output : 'gfx10_format_table.h',
-  command : [prog_python, '@INPUT@'],
-  capture : true,
-  depend_files : files('../registers/regdb.py')
-)
-
 libradv_files = files(
   'layers/radv_sqtt_layer.c',
   'winsys/amdgpu/radv_amdgpu_bo.c',
@@ -140,7 +131,7 @@ if with_platform_wayland
   libradv_files += files('radv_wsi_wayland.c')
 endif
 
-if with_platform_drm
+if system_has_kms_drm and not with_platform_android
   radv_flags += '-DVK_USE_PLATFORM_DISPLAY_KHR'
   libradv_files += files('radv_wsi_display.c')
 endif
@@ -157,19 +148,9 @@ if with_platform_android
   ]
 endif
 
-# When static linking LLVM, all its symbols are public API.
-# That may cause symbol collision, so explicitly demote everything.
-libvulkan_radeon_ld_args = []
-libvulkan_radeon_link_depends = []
-
-if with_llvm and with_ld_version_script
-  libvulkan_radeon_ld_args += ['-Wl,--version-script', join_paths(meson.current_source_dir(), 'vulkan.sym')]
-  libvulkan_radeon_link_depends += files('vulkan.sym')
-endif
-
 libvulkan_radeon = shared_library(
   'vulkan_radeon',
-  [libradv_files, radv_entrypoints, radv_extensions_c, amd_vk_format_table_c, sha1_h, radv_gfx10_format_table_h],
+  [libradv_files, radv_entrypoints, radv_extensions_c, amd_vk_format_table_c, sha1_h],
   include_directories : [
     inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_amd, inc_amd_common, inc_amd_common_llvm, inc_compiler, inc_util, inc_vulkan_wsi,
   ],
@@ -181,10 +162,10 @@ libvulkan_radeon = shared_library(
     dep_valgrind, radv_deps, idep_aco,
     idep_mesautil, idep_nir, idep_vulkan_util, idep_amdgfxregs_h, idep_xmlconfig,
   ],
-  c_args : [c_vis_args, no_override_init_args, radv_flags],
-  cpp_args : [cpp_vis_args, radv_flags],
-  link_args : [ld_args_bsymbolic, ld_args_gc_sections, libvulkan_radeon_ld_args],
-  link_depends : [libvulkan_radeon_link_depends,],
+  c_args : [no_override_init_args, radv_flags],
+  cpp_args : [radv_flags],
+  link_args : [ld_args_build_id, ld_args_bsymbolic, ld_args_gc_sections],
+  gnu_symbol_visibility : 'hidden',
   install : true,
 )
 
@@ -195,6 +176,7 @@ if with_symbols_check
     args : [
       '--lib', libvulkan_radeon,
       '--symbols-file', vulkan_icd_symbols,
+      '--ignore-symbol', 'ac_init_shared_llvm_once',
       symbols_check_args,
     ],
     suite : ['amd'],
